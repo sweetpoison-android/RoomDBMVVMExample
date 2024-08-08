@@ -111,7 +111,7 @@ class MainActivity : AppCompatActivity() {
                         mainViewModel.insertNotes(NotesModel(0, binding.etNotes.text.toString(),imgByte))
                         binding.etNotes.text = null
 
-                        Toast.makeText(this@MainActivity, "Data Added", Toast.LENGTH_LONG).show()
+                      //  Toast.makeText(this@MainActivity, "Data Added", Toast.LENGTH_LONG).show()
                     }
 
                 }
