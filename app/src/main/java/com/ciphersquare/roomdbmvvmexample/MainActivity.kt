@@ -1,7 +1,10 @@
 package com.ciphersquare.roomdbmvvmexample
 
+import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Bundle
-import android.text.Editable
+import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
@@ -9,10 +12,9 @@ import androidx.databinding.DataBindingUtil
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView.ItemDecoration
-import androidx.recyclerview.widget.RecyclerView.LayoutManager
 import androidx.recyclerview.widget.RecyclerView.VERTICAL
 import com.ciphersquare.roomdbmvvmexample.databinding.ActivityMainBinding
+import java.io.ByteArrayOutputStream
 
 class MainActivity : AppCompatActivity() {
 
@@ -23,6 +25,10 @@ class MainActivity : AppCompatActivity() {
    var boolean = false
 
     var id:Int = 0
+
+    private var bitmap: Bitmap? = null
+
+   private lateinit var imgByte:ByteArray
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,19 +41,30 @@ class MainActivity : AppCompatActivity() {
 
         mainViewModel.getNotes().observe(this) { i->
 
-            val adapter = NotesAdapter(i, this, itemClickListener = object :
-                ItemClickListener {
-                override fun onItemClicked(notesModel: NotesModel) {
+            val adapter = NotesAdapter(i, this, itemClickListener = object : ItemClickListener {
+                override fun onDeleteItemClicked(notesModel: NotesModel) {
                     mainViewModel.deleteNotes(notesModel)
                 }
 
-                override fun onItemUpdateClicked(strUpdate: String, bool: Boolean, id: Int) {
+                override fun onUpdateItemClicked(
+                    strUpdate: String,
+                    bool: Boolean,
+                    id: Int,
+                    byte: ByteArray
+                ) {
+
                    binding.etNotes.setText(strUpdate)
                     boolean = bool
                     this@MainActivity.id = id
+                    imgByte = byte
+
+                    val imageByte = imgByte
+                    val bitmap = BitmapFactory.decodeByteArray(imageByte, 0, imageByte.size);
+                    binding.image.setImageBitmap(bitmap);
 
                     if (boolean){
                         binding.btnSubmit.text = "Update"
+                        binding.btnImage.text = "Change"
                     }
 
                 }
@@ -75,28 +92,68 @@ class MainActivity : AppCompatActivity() {
         binding.apply {
             binding.tvData.text = " "
 
+            btnImage.setOnClickListener {
+                val intent = Intent()
+                intent.action = Intent.ACTION_GET_CONTENT
+                intent.type = "image/*"
+                startActivityForResult(intent, 1)
+
+            }
+
             btnSubmit.setOnClickListener {
 
-                if (!boolean)
-                {
-                    mainViewModel.insertNotes(NotesModel(0, binding.etNotes.text.toString()))
-                    binding.etNotes.text = null
+                if (!boolean) {
 
-                    Toast.makeText(this@MainActivity, "Data Added", Toast.LENGTH_LONG).show()
+                    val stream = ByteArrayOutputStream();
+                    if (bitmap != null) {
+                        bitmap!!.compress(Bitmap.CompressFormat.JPEG, 100, stream);
+                        imgByte = stream.toByteArray();
+                        mainViewModel.insertNotes(NotesModel(0, binding.etNotes.text.toString(),imgByte))
+                        binding.etNotes.text = null
+
+                        Toast.makeText(this@MainActivity, "Data Added", Toast.LENGTH_LONG).show()
+                    }
+
                 }
-                else{
-                    mainViewModel.updateNotes(NotesModel(id, binding.etNotes.text.toString()))
+                else {
+
+                    val stream = ByteArrayOutputStream();
+                    if (bitmap != null) {
+                        bitmap!!.compress(Bitmap.CompressFormat.JPEG, 100, stream);
+                        imgByte = stream.toByteArray();
+                        mainViewModel.updateNotes(NotesModel(id, binding.etNotes.text.toString(),imgByte))
+                        binding.etNotes.text = null
+
+                        Toast.makeText(this@MainActivity, "Data Added", Toast.LENGTH_LONG).show()
+                    }
+
+               //     mainViewModel.updateNotes(NotesModel(id, binding.etNotes.text.toString(),imgByte))
 
                     Toast.makeText(this@MainActivity, "Data Updated", Toast.LENGTH_LONG).show()
                     boolean = false
                     etNotes.text = null
                     btnSubmit.text = "Submit"
+                    btnImage.text = "Image"
                 }
 
             }
 
-
         }
 
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (resultCode == RESULT_OK && requestCode == 1 && data!= null) {
+            val selectImgUrl = data.data
+            binding.image.setImageURI(selectImgUrl)
+            try {
+                bitmap = MediaStore.Images.Media.getBitmap(contentResolver, selectImgUrl)
+                binding.image.setImageBitmap(bitmap);
+            } catch ( e:RuntimeException) {
+                throw RuntimeException(e)
+            }
+        }
     }
 }
